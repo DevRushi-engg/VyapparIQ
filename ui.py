@@ -5,6 +5,7 @@ from __future__ import annotations
 import html
 from typing import Any
 
+import pandas as pd
 import plotly.express as px
 import streamlit as st
 
