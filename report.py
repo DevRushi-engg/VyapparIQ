@@ -23,6 +23,12 @@ def build_summary_csv(analysis: dict) -> bytes:
     trend = analysis["trend"]
     rows = [
         ("Revenue", analysis["total_revenue"]),
+    ]
+    if analysis.get("has_expenses"):
+        rows.append(("Total Expenses", analysis["total_expenses"]))
+        rows.append(("Net Profit", analysis["net_profit"]))
+        rows.append(("Profit Margin (%)", analysis["profit_margin"]))
+    rows.extend([
         ("Transactions", analysis["transaction_count"]),
         ("Average Transaction", analysis["average_transaction"]),
         ("Top Revenue Category", analysis["top_category"]),
@@ -35,7 +41,7 @@ def build_summary_csv(analysis: dict) -> bytes:
         ("Revenue Trend", trend["label"]),
         ("Period Change (%)", trend["change_percent"]),
         ("Trend Confidence", trend["confidence"]),
-    ]
+    ])
     return pd.DataFrame(rows, columns=["Metric", "Value"]).to_csv(index=False).encode("utf-8")
 
 
@@ -48,6 +54,11 @@ def build_pdf_report(analysis: dict, ai_result: object | None = None) -> bytes:
     values = [
         ["Metric", "Value"],
         ["Revenue", format_inr(analysis["total_revenue"])],
+    ]
+    if analysis.get("has_expenses"):
+        values.append(["Total expenses", format_inr(analysis["total_expenses"])])
+        values.append(["Net profit", format_inr(analysis["net_profit"])])
+    values.extend([
         ["Transactions", str(analysis["transaction_count"])],
         ["Average transaction", format_inr(analysis["average_transaction"])],
         ["Top revenue category", str(analysis["top_category"])],
@@ -55,7 +66,7 @@ def build_pdf_report(analysis: dict, ai_result: object | None = None) -> bytes:
         ["Strongest weekday", str(analysis["best_day"])],
         ["Weakest weekday", str(analysis["weakest_day"])],
         ["Revenue trend", f"{trend['label']} ({trend['confidence']} confidence)"],
-    ]
+    ])
     table = Table(values, colWidths=[65 * mm, 95 * mm])
     table.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#173f35")), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white), ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#d6ddd8")), ("PADDING", (0, 0), (-1, -1), 7)]))
     story.extend([table, Spacer(1, 10), Paragraph("Recommendations", styles["Heading2"])])

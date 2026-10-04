@@ -15,17 +15,16 @@ from ui import inject_styles, render_ai_insights, render_business_signals, rende
 from validation import validate_and_clean_csv
 
 ROOT = Path(__file__).parent
-SAMPLE_PATH = ROOT / "data" / "dummy_sales.csv"
 LANGUAGES = ["English", "Hinglish", "Hindi", "Marathi"]
 
 
 def initialize_state() -> None:
-    defaults = {"data": None, "analysis": None, "ai_result": None, "ai_fallback": False, "ai_error": "", "is_sample": False, "api_key": "", "language": "English", "chat": []}
+    defaults = {"data": None, "analysis": None, "ai_result": None, "ai_fallback": False, "ai_error": "", "api_key": "", "language": "English", "chat": []}
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
 
 
-def load_frame(frame: pd.DataFrame, is_sample: bool = False) -> None:
+def load_frame(frame: pd.DataFrame) -> None:
     result = validate_and_clean_csv(frame.to_csv(index=False).encode("utf-8"))
     if not result.valid:
         for error in result.errors:
@@ -33,14 +32,14 @@ def load_frame(frame: pd.DataFrame, is_sample: bool = False) -> None:
         return
     analysis = build_analysis(result.cleaned_data)
     analysis["daily_revenue"] = calculate_daily_revenue(result.cleaned_data)
-    st.session_state.update({"data": result.cleaned_data, "analysis": analysis, "ai_result": None, "ai_fallback": False, "ai_error": "", "is_sample": is_sample, "chat": []})
+    st.session_state.update({"data": result.cleaned_data, "analysis": analysis, "ai_result": None, "ai_fallback": False, "ai_error": "", "chat": []})
     st.session_state["validation"] = result
 
 
 def clear_data() -> None:
     for key in ["data", "analysis", "ai_result", "validation"]:
         st.session_state[key] = None
-    st.session_state.update({"ai_fallback": False, "ai_error": "", "is_sample": False, "chat": [], "api_key": ""})
+    st.session_state.update({"ai_fallback": False, "ai_error": "", "chat": [], "api_key": ""})
 
 
 def main() -> None:
@@ -51,13 +50,6 @@ def main() -> None:
     if st.session_state["analysis"] is None:
         render_empty_state()
         upload = render_upload_area()
-        sample_col, download_col = st.columns([1, 1])
-        with sample_col:
-            if st.button("Try Sample Data", type="primary", use_container_width=True):
-                load_frame(pd.read_csv(SAMPLE_PATH), is_sample=True)
-                st.rerun()
-        with download_col:
-            st.download_button("Download Sample CSV", SAMPLE_PATH.read_bytes(), "vyapaar-iq-sample.csv", "text/csv", use_container_width=True)
         if upload is not None:
             result = validate_and_clean_csv(upload.getvalue())
             if result.valid:
@@ -69,9 +61,11 @@ def main() -> None:
         return
 
     analysis = st.session_state["analysis"]
-    if st.session_state["is_sample"]:
-        st.caption("Sample Business · Local General Store")
-    st.markdown('<div class="hero"><div class="eyebrow">Business Overview</div><h1>Your sales performance at a glance.</h1><p>Numbers are calculated locally from your cleaned sales data. Recommendations are based on the resulting business signals.</p></div>', unsafe_allow_html=True)
+    validation = st.session_state.get("validation")
+    if validation and validation.detected_columns:
+        cols_info = " · ".join(f"{k}: {v}" for k, v in validation.detected_columns.items())
+        st.caption(f"Detected columns: {cols_info}")
+    st.markdown('<div class="hero"><div class="eyebrow">Business Overview</div><h1>Your business performance at a glance.</h1><p>Numbers are calculated locally from your cleaned sales and business records.</p></div>', unsafe_allow_html=True)
     render_metrics(analysis)
     st.markdown('<div class="section"><div class="eyebrow">Sales Performance</div><h2>Where your revenue is coming from.</h2></div>', unsafe_allow_html=True)
     render_charts(analysis)

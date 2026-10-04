@@ -51,14 +51,33 @@ def render_empty_state() -> None:
 
 
 def render_upload_area() -> Any:
-    uploaded = st.file_uploader("Upload Sales CSV", type=["csv"], help="Expected fields: Date, Item_Name, Category, Amount_INR. Quantity is optional.")
-    st.caption("Expected fields: Date · Item_Name · Category · Amount_INR")
+    uploaded = st.file_uploader(
+        "Upload Business CSV",
+        type=["csv"],
+        help="Upload any sales or business CSV. Automatically detects Date, Amount, Category, Particulars, Type, and Payment Mode."
+    )
+    st.caption("Supports any CSV format · Auto-detects dates, amounts, categories, sales vs expenses, and payment modes")
     return uploaded
 
 
 def render_metrics(analysis: dict[str, Any]) -> None:
-    columns = st.columns(4)
-    values = [("Revenue", format_inr(analysis["total_revenue"])), ("Transactions", f"{analysis['transaction_count']:,}"), ("Avg. Bill", format_inr(analysis["average_transaction"])), ("Top Category", analysis["top_category"])]
+    if analysis.get("has_expenses"):
+        columns = st.columns(5)
+        values = [
+            ("Sales Revenue", format_inr(analysis["total_revenue"])),
+            ("Total Expenses", format_inr(analysis["total_expenses"])),
+            ("Net Profit", format_inr(analysis["net_profit"])),
+            ("Sales Txns", f"{analysis['transaction_count']:,}"),
+            ("Top Category", analysis["top_category"]),
+        ]
+    else:
+        columns = st.columns(4)
+        values = [
+            ("Revenue", format_inr(analysis["total_revenue"])),
+            ("Transactions", f"{analysis['transaction_count']:,}"),
+            ("Avg. Bill", format_inr(analysis["average_transaction"])),
+            ("Top Category", analysis["top_category"]),
+        ]
     for column, (label, value) in zip(columns, values):
         column.markdown(f'<div class="metric"><div class="metric-label">{html.escape(label)}</div><div class="metric-value">{html.escape(value)}</div></div>', unsafe_allow_html=True)
 
@@ -68,7 +87,7 @@ def render_charts(analysis: dict[str, Any]) -> None:
     category = analysis["category_revenue"].rename_axis("Category").reset_index(name="Revenue")
     category["Revenue"] = category["Revenue"].round(2)
     figure = px.bar(category, x="Revenue", y="Category", orientation="h", text_auto=".2s", color_discrete_sequence=["#17634f"])
-    figure.update_layout(height=360, margin=dict(l=0, r=10, t=25, b=0), title="Revenue by Category", plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", showlegend=False, xaxis_title=None, yaxis_title=None, font=dict(family="DM Sans", color="#17201d"))
+    figure.update_layout(height=360, margin=dict(l=0, r=10, t=25, b=0), title="Sales Revenue by Category", plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", showlegend=False, xaxis_title=None, yaxis_title=None, font=dict(family="DM Sans", color="#17201d"))
     figure.update_xaxes(tickprefix="₹", showgrid=True, gridcolor="#e7ece8")
     daily = analysis["daily_revenue"] if "daily_revenue" in analysis else None
     if daily is None:
@@ -81,6 +100,25 @@ def render_charts(analysis: dict[str, Any]) -> None:
         trend_figure.update_yaxes(tickprefix="₹", showgrid=True, gridcolor="#e7ece8")
         with right:
             st.plotly_chart(trend_figure, use_container_width=True, config={"displayModeBar": False})
+
+    # Optional extra row: Payment Modes and/or Expenses breakdown if detected
+    has_pm = analysis.get("has_payment_mode") and analysis.get("payment_mode_summary")
+    has_exp = analysis.get("has_expenses") and analysis.get("expense_category_breakdown")
+    if has_pm or has_exp:
+        extra_left, extra_right = st.columns(2)
+        if has_pm:
+            pm_data = pd.DataFrame([{"Payment Mode": k, "Amount": v} for k, v in analysis["payment_mode_summary"].items()])
+            pm_fig = px.pie(pm_data, names="Payment Mode", values="Amount", title="Sales by Payment Mode", color_discrete_sequence=px.colors.qualitative.Dark24, hole=0.4)
+            pm_fig.update_layout(height=320, margin=dict(l=0, r=10, t=30, b=0), font=dict(family="DM Sans", color="#17201d"), paper_bgcolor="rgba(0,0,0,0)")
+            with extra_left:
+                st.plotly_chart(pm_fig, use_container_width=True, config={"displayModeBar": False})
+        if has_exp:
+            exp_data = pd.DataFrame([{"Category": k, "Expenses": v} for k, v in analysis["expense_category_breakdown"].items()])
+            exp_fig = px.bar(exp_data, x="Expenses", y="Category", orientation="h", text_auto=".2s", color_discrete_sequence=["#a83232"])
+            exp_fig.update_layout(height=320, margin=dict(l=0, r=10, t=30, b=0), title="Expenses by Category", plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", showlegend=False, xaxis_title=None, yaxis_title=None, font=dict(family="DM Sans", color="#17201d"))
+            exp_fig.update_xaxes(tickprefix="₹", showgrid=True, gridcolor="#e7ece8")
+            with (extra_right if has_pm else extra_left):
+                st.plotly_chart(exp_fig, use_container_width=True, config={"displayModeBar": False})
 
 
 def render_business_signals(analysis: dict[str, Any]) -> None:

@@ -33,3 +33,24 @@ def test_trend_and_ai_summary_are_aggregate_only():
     assert trend["label"] in {"Increasing", "Decreasing", "Stable"}
     assert "Item_Name" not in summary
     assert summary["transactions"] == 4
+
+
+def test_sales_and_expenses_separation():
+    data = pd.DataFrame({
+        "Date": pd.to_datetime(["2024-01-01", "2024-01-01", "2024-01-02"]),
+        "Item_Name": ["Groceries", "Shop Rent", "Dairy"],
+        "Category": ["Groceries", "Rent", "Dairy"],
+        "Payment_Mode": ["UPI", "Bank Transfer", "Cash"],
+        "Type": ["Sale", "Expense", "Sale"],
+        "Amount_INR": [350.0, 18000.0, 173.0],
+    })
+    analysis = build_analysis(data)
+    assert analysis["has_expenses"] is True
+    assert analysis["total_revenue"] == 523.0  # 350 + 173 (only sales)
+    assert analysis["total_expenses"] == 18000.0
+    assert analysis["net_profit"] == 523.0 - 18000.0
+    assert analysis["has_payment_mode"] is True
+    assert analysis["top_payment_mode"] in ["UPI", "Cash"]
+    summary = build_ai_summary(analysis)
+    assert summary["total_expenses_inr"] == 18000.0
+    assert summary["net_profit_inr"] == 523.0 - 18000.0

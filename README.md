@@ -52,21 +52,28 @@ config.py              Environment-backed configuration
 recommendations.py     Deterministic fallback recommendations
 report.py              PDF and aggregate CSV exports
 ui.py                  Reusable dashboard components
-validation.py          CSV validation and cleaning
-data/dummy_sales.csv   Deterministic demo dataset
+validation.py          CSV validation, auto-detection, and cleaning
 tests/                 Unit tests without an API key
 ```
 
 ## Dataset Format
 
-Required columns:
+VyapaarIQ works with **any sales or business transaction CSV**. The intelligent auto-detection engine automatically discovers and maps your columns:
+
+- **Date**: e.g., `Date`, `Transaction_Date`, `Invoice_Date`, `Timestamp`
+- **Amount**: e.g., `Amount`, `Amount_INR`, `Total`, `Price`, `Sales`, `Net_Amount`
+- **Category** *(optional)*: e.g., `Category`, `Department`, `Item_Category` (defaults to `"General"` if omitted)
+- **Particulars / Item** *(optional)*: e.g., `Particulars`, `Item_Name`, `Product`, `Description`
+- **Type** *(optional)*: e.g., `Type` (`Sale` vs `Expense`) — automatically separates revenue from expenses and calculates net profit!
+- **Payment Mode** *(optional)*: e.g., `Payment_Mode`, `Method` (`UPI`, `Cash`, `Card`, etc.) — analyzes collection channels!
+
+Example format:
 
 ```csv
-Date,Item_Name,Category,Amount_INR
-2026-09-01,Rice 5kg,Grocery,450
+Date,Particulars,Category,Payment_Mode,Type,Amount
+2024-01-01,"Packaged Groceries Retail Sale #1",Packaged Groceries,UPI,Sale,350
+2024-01-01,"Shop Commercial Rent Payment",Rent,Bank Transfer,Expense,18000
 ```
-
-`Quantity` is optional. If it is absent, VyapaarIQ does not claim to know units sold. Revenue is not profit, net income, margin, or cash flow.
 
 ## Setup
 
